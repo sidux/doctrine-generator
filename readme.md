@@ -5,8 +5,6 @@ Try to generate Doctrine entities from GenMyModel project. [WIP]
 For OneToOne & ManyToMany specify owning side after generation
 
 ## TODO ##
-
-* Clean add/remove function skeleton
 * Doctrine inheritance annotations
 * Interface in class declaration
-* ..
+* Handle Enums with (doctrine Enum extension)
