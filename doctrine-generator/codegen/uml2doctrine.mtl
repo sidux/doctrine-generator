@@ -1,3 +1,16 @@
+[comment]
+/*******************************************************************************
+ * UML to Doctrine generator
+ * Based on https://github.com/AlixBa/doctrine-generator
+ *
+ * This is a MTL generator template
+ * See: 
+ * Language Reference: http://help.eclipse.org/juno/topic/org.eclipse.acceleo.doc/pages/reference/language.html?cp=5_3_0
+ * Operations: http://help.eclipse.org/juno/topic/org.eclipse.acceleo.doc/pages/reference/operations.html?cp=5_3_2
+ * Text production rules: http://help.eclipse.org/juno/topic/org.eclipse.acceleo.doc/pages/reference/textproductionrules.html?cp=5_3_5
+ *
+ *******************************************************************************
+[/comment]
 [module uml2doctrine('http://www.eclipse.org/uml2/4.0.0/UML')/]
 
 [template public generate(c : Class) post (trim())]
@@ -20,8 +33,51 @@
 	[c.entityAssociationsAddRemoveGet()/]
 }
 [/file]
+
+[file (c.name.concat('Repository.php'), false, 'UTF-8')]
+[repositoryDeclaration(c)/]
+
+use Doctrine\ORM\EntityRepository;
+
+/**
+ * [c.name.concat('Repository')/]
+ */
+class [c.name.concat('Repository')/] extends EntityRepository
+{
+}
+[/file]
+
 [/template]
 
+[template public generate(e : Enumeration) post (trim())]
+[comment @main/]
+
+[file (e.name.concat('.php'), false, 'UTF-8')]
+<?php
+
+namespace [enumNamespace(e)/];
+
+use Fresh\DoctrineEnumBundle\DBAL\Types\AbstractEnumType;
+
+/**
+ * [e.name/]
+ */
+class [e.name/] extends AbstractEnumType
+{
+
+[for (p:NamedElement | e.getOwnedMembers()) ]
+    const [p.name.toUpper()/] = '[p.name/]';
+[/for]
+
+    protected static $choices = ['['/]
+    [for (p:NamedElement | e.getOwnedMembers()) ]
+        self::[p.name.toUpper()/]    => '[p.name.toUpperFirst()/]',
+    [/for]
+ [']'/];
+}
+[/file]
+
+[/template]
 
 [template public entityDocumentDeclaration(c : Class) post(trim())]
 <?php
@@ -40,6 +96,11 @@ namespace [repositoryNamespace(c)/];
 [c.getNamespace().name/]\Entity
 [/template]
 
+[template public enumNamespace(e : Enumeration) post (trim())]
+[e.getNamespace().name/]\Enum
+[/template]
+
+
 [template public repositoryNamespace(c : Class) post (trim())]
 [c.getNamespace().name/]\Repository
 [/template]
@@ -52,23 +113,29 @@ use Doctrine\Common\Collections\ArrayCollection;
 use JMS\Serializer\Annotation\ExclusionPolicy;
 use JMS\Serializer\Annotation\Expose;
 use AWCoreBundle\Entity\Entity;
+[if (c._package.eAllContents(Enumeration)->notEmpty()) ]
+use Fresh\DoctrineEnumBundle\Validator\Constraints as EnumAssert;
+[/if]
+[for (e : Enumeration | c._package.eAllContents(Enumeration)) ]
+use [enumNamespace(e)/]\[e.name/];
+[/for]
+
 [/template]
 
+
 [template public entityDocumentation(c : Class) post (trim())]
+
 
 /**
  * [c.name/]
  *
  * @ORM\Table()
  * @ORM\Entity(repositoryClass="[entityRepositoryFQN(c)/]")
-[for (e : String | c._package.eAllContents(Class).superClass.name)]
-    [if (e.equalsIgnoreCase(c.name)) ]
+[if (c._package.eAllContents(Class).superClass.name.strstr(c.name)->first()) ]
  * @ORM\InheritanceType("SINGLE_TABLE")
-    [/if]
-[/for]
+[/if]
  * @ExclusionPolicy("all")
  */
- 
 [/template]
 
 
@@ -80,6 +147,9 @@ use AWCoreBundle\Entity\Entity;
 [c.getNamespace().name/]\Repository\[c.name/]
 [/template]
 
+[template public enumFQN(c : Class) post(trim())]
+[c.getNamespace().name/]\Enum\[c.name/]
+[/template]
 
 [template public entityRepositoryFQN(c : Class) post (trim())]
 [c.repositoryFQN()/]Repository
@@ -95,7 +165,6 @@ use AWCoreBundle\Entity\Entity;
 
 
 
-
 [template public entityAbstract(c : Class)]
 [if (c.isAbstract)]abstract [/if]
 [/template]
@@ -104,7 +173,7 @@ use AWCoreBundle\Entity\Entity;
 
 
 [template public entityExtends(c : Class)]
-[if (not c.superClass->isEmpty())] extends [for (sc : Class | c.superClass) separator (', ')][sc.entityFQN()/][/for][/if]
+[if (not c.superClass->isEmpty())] extends [for (sc : Class | c.superClass) separator (', ')][sc.entityFQN()/][/for][else] extends Entity[/if]
 [/template]
 
 
@@ -118,7 +187,9 @@ use AWCoreBundle\Entity\Entity;
 /**
 [if (not p.type.name.equalsIgnoreCase('virtual')) ]
  * @var [typePHP/]
- *
+[if (not p.type.oclAsType(Enumeration).oclIsInvalid())]
+ * @EnumAssert\Enum(entity="[typeDoc/]")
+[/if]
  * @ORM\Column(name="[p.name/]", type="[typeDoc/]")
 [if (p.name.equalsIgnoreCase('id'))]
  * @ORM\Id
