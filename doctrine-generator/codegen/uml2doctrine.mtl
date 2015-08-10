@@ -1,105 +1,95 @@
-[comment encoding = UTF-8 /]
-[module uml2doctrine('http://www.eclipse.org/uml2/4.0.0/UML')]
-
-
-
+[module uml2doctrine('http://www.eclipse.org/uml2/4.0.0/UML')/]
 
 [template public generate(c : Class) post (trim())]
+[comment @main/]
+[file (c.name.concat('.php'), false, 'UTF-8')]
+[c.entityDocumentDeclaration()/]
 
+[c.entityUse()/]
 
-	[comment @main/]
+[c.entityDocumentation()/]
+[c.entityDeclaration()/]
+	[c.entityProperties()/]
 
-	
-	[file (c.name.concat('.php'), false, 'UTF-8')]
-[documentDeclaration(c)/]
+	[c.entityAssociations()/]
 
-[entityUse(c)/]
+	[c.entityConstruct()/]
 
-[entityDocumentation(c)/]
-[entityDeclaration(c)/]
-	[entityProperties(c)/]
+	[c.entityPropertiesGetSet()/]
 
-	[entityAssociations(c)/]
-
-	[entityConstruct(c)/]
-
-	[entityPropertiesGetSet(c)/]
-
-	[entityAssociationsAddRemoveGet(c)/]
+	[c.entityAssociationsAddRemoveGet()/]
 }
-	[/file]
-
-	
-	[file (c.name.concat('Repository.php'), false, 'UTF-8')]
-[documentDeclaration(c)/]
-
-use Doctrine\ORM\EntityRepository;
-
-/**
- * [c.name.concat('Repository')/]
- */
-class [c.name.concat('Repository')/] extends EntityRepository
-{
-}
-	[/file]
-
-	
+[/file]
 [/template]
 
 
-
-
-[template public documentDeclaration(c : Class) post(trim())]
+[template public entityDocumentDeclaration(c : Class) post(trim())]
 <?php
 
 namespace [entityNamespace(c)/];
 [/template]
 
+[template public repositoryDeclaration(c : Class) post(trim())]
+<?php
 
+namespace [repositoryNamespace(c)/];
+[/template]
 
 
 [template public entityNamespace(c : Class) post (trim())]
 [c.getNamespace().name/]\Entity
 [/template]
 
-
+[template public repositoryNamespace(c : Class) post (trim())]
+[c.getNamespace().name/]\Repository
+[/template]
 
 
 [template public entityUse(c : Class) post (trim()) { used : Boolean = false; }]
 use Doctrine\ORM\Mapping as ORM;
+use Gedmo\Mapping\Annotation as Gedmo;
+use Doctrine\Common\Collections\ArrayCollection;
+use JMS\Serializer\Annotation\ExclusionPolicy;
+use JMS\Serializer\Annotation\Expose;
+use AWCoreBundle\Entity\Entity;
 [/template]
 
-
-
-
 [template public entityDocumentation(c : Class) post (trim())]
+
 /**
  * [c.name/]
  *
  * @ORM\Table()
  * @ORM\Entity(repositoryClass="[entityRepositoryFQN(c)/]")
+[for (e : String | c._package.eAllContents(Class).superClass.name)]
+    [if (e.equalsIgnoreCase(c.name)) ]
+ * @ORM\InheritanceType("SINGLE_TABLE")
+    [/if]
+[/for]
+ * @ExclusionPolicy("all")
  */
+ 
 [/template]
-
-
 
 
 [template public entityFQN(c : Class) post(trim())]
-[entityNamespace(c)/]\[c.name/]
+[c.entityNamespace()/]\[c.name/]
+[/template]
+
+[template public repositoryFQN(c : Class) post(trim())]
+[c.getNamespace().name/]\Repository\[c.name/]
 [/template]
 
 
-
-
 [template public entityRepositoryFQN(c : Class) post (trim())]
-[entityFQN(c)/]Repository
+[c.repositoryFQN()/]Repository
 [/template]
 
 
 
 
 [template public entityDeclaration(c : Class) post (trim())]
-[entityAbstract(c)/]class [c.name/][entityExtends(c)/]
+[c.entityAbstract()/]class [c.name/][entityExtends(c)/]
 {
 [/template]
 
@@ -114,7 +104,7 @@ use Doctrine\ORM\Mapping as ORM;
 
 
 [template public entityExtends(c : Class)]
-[if (not c.superClass->isEmpty())] extends [for (sc : Class | c.superClass) separator (', ')][entityFQN(sc)/][/for][/if]
+[if (not c.superClass->isEmpty())] extends [for (sc : Class | c.superClass) separator (', ')][sc.entityFQN()/][/for][/if]
 [/template]
 
 
@@ -122,9 +112,11 @@ use Doctrine\ORM\Mapping as ORM;
 
 [template public entityProperties(c : Class) post(trim())]
 [for (p: Property | c.attribute) separator ('\n')]
-[let typePHP : String = p.type.name.replaceAll('Integer', 'integer').replaceAll('String', 'string').replaceAll('Boolean', 'boolean')]
-[let typeDoc : String = typePHP.replaceAll('\\\\DateTime', 'datetime')]
-/*
+[let typePHP : String = p.type.name.replaceAll('Integer', 'integer').replaceAll('String', 'string').replaceAll('Boolean', 'boolean').replaceAll('Date', '\\\\DateTime')]
+[let typeDoc : String = typePHP.replaceAll('\\\\DateTime', 'datetime').replaceAll('Date', 'datetime')]
+
+/**
+[if (not p.type.name.equalsIgnoreCase('virtual')) ]
  * @var [typePHP/]
  *
  * @ORM\Column(name="[p.name/]", type="[typeDoc/]")
@@ -132,6 +124,15 @@ use Doctrine\ORM\Mapping as ORM;
  * @ORM\Id
  * @ORM\GeneratedValue(strategy="AUTO")
 [/if]
+[if (p.name.equalsIgnoreCase('createdat') or p.name.equalsIgnoreCase('updatedat'))]
+[let typeGedmo : String = p.name.replaceAll('tedAt', 'te')]
+ * @Gedmo\Timestampable(on="[typeGedmo/]")
+[/let]
+[/if]
+[else]
+ * @var mixed
+[/if]
+ * @Expose
  */
 [p.visibility/] $[p.name/];
 [/let]
@@ -161,17 +162,15 @@ use Doctrine\ORM\Mapping as ORM;
 [/template]
 
 
-
-
 [template public oneToMany(p : Property) post(trim())]
-/*
- * @var Doctrine\Common\Collections\ArrayCollection
+/**
+ * @var ArrayCollection|[p.type.oclAsType(Class).entityFQN()/]['['/][']'/]
  *
- * @ORM\OneToMany(targetEntity="[entityFQN(p.type.oclAsType(Class))/]", mappedBy="[p.opposite.name/]")
+ * @ORM\OneToMany(targetEntity="[p.type.oclAsType(Class).entityFQN()/]", mappedBy="[p.opposite.name/]")
+ * @Expose
  */
 [p.visibility/] $[p.name/];
 [/template]
-
 
 
 
@@ -179,13 +178,11 @@ use Doctrine\ORM\Mapping as ORM;
 	isOwningSide : Boolean = p.eAnnotations.details->select(value.toString().contains('association:owning'))->notEmpty();
 	isNullable : Boolean = p.lower.toString().equalsIgnoreCase('0');
 }]
-/*
+/**
  * @var [entityFQN(p.type.oclAsType(Class))/]
  *
- * @ORM\OneToOne(targetEntity="[entityFQN(p.type.oclAsType(Class))/]", [if(isOwningSide)]inversed[else]mapped[/if]By="[p.opposite.name/]")
-[if (isNullable)]
- * @ORM\JoinColumn(nullable=true)
-[/if]
+ * @ORM\OneToOne(targetEntity="[p.type.oclAsType(Class).entityFQN()/]", [if(isOwningSide)]inversed[else]mapped[/if]By="[p.opposite.name/]"[if (isNullable)], nullable=true[/if])
+ * @Expose
  */
 [p.visibility/] $[p.name/];
 [/template]
@@ -194,10 +191,16 @@ use Doctrine\ORM\Mapping as ORM;
 
 
 [template public manyToOne(p : Property) post(trim())]
-/*
- * @var [entityFQN(p.type.oclAsType(Class))/]
+/**
+ * @var [p.type.oclAsType(Class).entityFQN()/]
  *
- * @ORM\ManyToOne(targetEntity="[entityFQN(p.type.oclAsType(Class))/]", inversedBy="[p.opposite.name/]")
+ * @ORM\ManyToOne(targetEntity="[p.type.oclAsType(Class).entityFQN()/]", inversedBy="[p.opposite.name/]")
+ * @ORM\JoinColumn(onDelete="CASCADE")
+ [if (p.name.equalsIgnoreCase('createdby') or p.name.equalsIgnoreCase('updatedby'))]
+    [let typeGedmo : String = p.name.replaceAll('tedBy', 'te')]
+ * @Gedmo\Blameable(on="[typeGedmo/]")
+    [/let]
+ [/if]
  */
 [p.visibility/] $[p.name/];
 [/template]
@@ -208,10 +211,11 @@ use Doctrine\ORM\Mapping as ORM;
 [template public manyToMany(p : Property) post(trim()) {
 	isOwningSide : Boolean = p.eAnnotations.details->select(value.toString().contains('association:owning'))->notEmpty();
 }]
-/*
- * @var Doctrine\Common\Collections\ArrayCollection
+/**
+ * @var ArrayCollection|[p.type.oclAsType(Class).entityFQN()/]['['/][']'/]
  *
- * @ORM\ManyToMany(targetEntity="[entityFQN(p.type.oclAsType(Class))/]", [if(isOwningSide)]inversed[else]mapped[/if]By="[p.opposite.name/]")
+ * @ORM\ManyToMany(targetEntity="[p.type.oclAsType(Class).entityFQN()/]", [if(isOwningSide)]inversed[else]mapped[/if]By="[p.opposite.name/]")
+ * @Expose
  */
 [p.visibility/] $[p.name/];
 [/template]
@@ -220,7 +224,7 @@ use Doctrine\ORM\Mapping as ORM;
 
 
 [template public entityConstruct(c : Class) post(trim())]
-/*
+/**
  * Constructor
  */
 public function __construct()
@@ -228,11 +232,11 @@ public function __construct()
 [for (p : Property | c.getAssociations().navigableOwnedEnd->select((type <> c) or (type = c and opposite.type = c)))]
 	[if (p.opposite.upper.toString().equalsIgnoreCase('1'))]
 		[if (p.upper.toString().equalsIgnoreCase('-1'))]
-	$this->[p.name/] = new Doctrine\Common\Collections\ArrayCollection();
+	$this->[p.name/] = new ArrayCollection();
 		[/if]
 	[else]
 		[if (not p.upper.toString().equalsIgnoreCase('1'))]
-	$this->[p.name/] = new Doctrine\Common\Collections\ArrayCollection();
+	$this->[p.name/] = new ArrayCollection();
 		[/if]
 	[/if]
 [/for]
@@ -256,13 +260,14 @@ public function __construct()
 
 
 [template public getterProperty(p : Property, isAssociation : Boolean) post (trim())]
-[let typePHP : String = p.type.name.replaceAll('Integer', 'integer').replaceAll('String', 'string').replaceAll('Boolean', 'boolean')]
-/*
+[let typePHP : String = p.type.name.replaceAll('Integer', 'integer').replaceAll('String', 'string').replaceAll('Boolean', 'boolean').replaceAll('Date', '\\\\Datetime')]
+
+/**
  * Gets [p.name/]
  * 
- * @return [if (isAssociation)][if (p.isMultivalued())]Doctrine\Common\Collections\ArrayCollection[else][entityFQN(p.type.oclAsType(Class))/][/if][else][typePHP/][/if]
+ * @return [if (isAssociation)][if (p.isMultivalued())]ArrayCollection|[p.type.oclAsType(Class).entityFQN()/]['['/][']'/][else][entityFQN(p.type.oclAsType(Class))/][/if][else][typePHP/][/if]
  */
-public function get[p.name.toUpperFirst()/]() 
+public function [if (typePHP.equalsIgnoreCase('boolean'))]is[else]get[/if][p.name.toUpperFirst()/]()
 {
 	return $this->[p.name/];
 }
@@ -273,12 +278,12 @@ public function get[p.name.toUpperFirst()/]()
 
 
 [template public setterProperty(p : Property, isAssociation : Boolean, oneTo : Boolean) post (trim())]
-[let typePHP : String = p.type.name.replaceAll('Integer', 'integer').replaceAll('String', 'string').replaceAll('Boolean', 'boolean')]
+[let typePHP : String = p.type.name.replaceAll('Integer', 'integer').replaceAll('String', 'string').replaceAll('Boolean', 'boolean').replaceAll('Date', '\\\\Datetime')]
 [let typePHPDec : Set(String) = Set{'integer', 'string', 'boolean'}]
-/*
+/**
  * Sets [p.name/]
  * 
- * @param [if (isAssociation)][entityFQN(p.type.oclAsType(Class))/][else][typePHP/][/if] $[p.name/]
+ * @param [if (isAssociation)][p.type.oclAsType(Class).entityFQN()/][else][typePHP/][/if] $[p.name/]
  * 
  * @return $this
  */
@@ -340,7 +345,7 @@ public function set[p.name.toUpperFirst()/]([if (isAssociation)][entityFQN(p.typ
 	param : String = p.name.substring(1, p.name.size() - 1);
 	typeFQN : String = entityFQN(p.type.oclAsType(Class));
 }]
-/*
+/**
  * Adds [param/]
  *
  * @param [typeFQN/] $[param/]
@@ -368,7 +373,7 @@ public function add[param.toUpperFirst()/]([typeFQN/] $[param/])
 	param : String = p.name.substring(1, p.name.size() - 1);
 	typeFQN : String = entityFQN(p.type.oclAsType(Class));
 }]
-/*
+/**
  * Removes [param/]
  *
  * @param [typeFQN/] $[param/]
