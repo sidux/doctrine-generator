@@ -112,9 +112,14 @@ use Gedmo\Mapping\Annotation as Gedmo;
 use Doctrine\Common\Collections\ArrayCollection;
 use JMS\Serializer\Annotation\ExclusionPolicy;
 use JMS\Serializer\Annotation\Expose;
+use JMS\Serializer\Annotation\Type;
 use AWCoreBundle\Entity\Entity;
+use Symfony\Component\Validator\Constraints as Assert;
 [if (c._package.eAllContents(Enumeration)->notEmpty()) ]
 use Fresh\DoctrineEnumBundle\Validator\Constraints as EnumAssert;
+[/if]
+[if (c.attribute.type.name->exists(s:String|s = 'File'))]
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 [/if]
 [for (e : Enumeration | c._package.eAllContents(Enumeration)) ]
 use [enumNamespace(e)/]\[e.name/];
@@ -125,13 +130,12 @@ use [enumNamespace(e)/]\[e.name/];
 
 [template public entityDocumentation(c : Class) post (trim())]
 
-
 /**
  * [c.name/]
  *
  * @ORM\Table()
  * @ORM\Entity(repositoryClass="[entityRepositoryFQN(c)/]")
-[if (c._package.eAllContents(Class).superClass.name.strstr(c.name)->first()) ]
+[if (c._package.eAllContents(Class).superClass.name->exists(s: String |s = c.name)) ]
  * @ORM\InheritanceType("SINGLE_TABLE")
 [/if]
  * @ExclusionPolicy("all")
@@ -187,10 +191,15 @@ use [enumNamespace(e)/]\[e.name/];
 /**
 [if (not p.type.name.equalsIgnoreCase('virtual')) ]
  * @var [typePHP/]
+ * @Type("string")
 [if (not p.type.oclAsType(Enumeration).oclIsInvalid())]
  * @EnumAssert\Enum(entity="[typeDoc/]")
 [/if]
- * @ORM\Column(name="[p.name/]", type="[typeDoc/]")
+[if (p.type.name.equalsIgnoreCase('file')) ]
+ * @ORM\Column(name="[p.name/]", type="string", length=255, nullable=true)
+[else]
+ * @ORM\Column(name="[p.name/]", type="[typeDoc/]", nullable=true)
+[/if]
 [if (p.name.equalsIgnoreCase('id'))]
  * @ORM\Id
  * @ORM\GeneratedValue(strategy="AUTO")
@@ -205,7 +214,17 @@ use [enumNamespace(e)/]\[e.name/];
 [/if]
  * @Expose
  */
-[p.visibility/] $[p.name/];
+ [if (p.type.name.equalsIgnoreCase('file')) ]
+ [p.visibility/] $[p.name/];
+ 
+ 
+ /**
+  * @Assert\File(maxSize="8192k")
+  */
+ [p.visibility/] $[p.name.concat('File')/];
+[else]
+ [p.visibility/] $[p.name/];
+[/if]
 [/let]
 [/let]
 [/for]
@@ -319,15 +338,123 @@ public function __construct()
 
 [template public entityPropertiesGetSet(c : Class) post (trim())]
 [for (p: Property | c.attribute) separator('\n')]
+
 [getterProperty(p, false)/]
 [if (not p.name.equalsIgnoreCase('id'))]
 
 [setterProperty(p, false, false)/]
 [/if]
+
+[if (p.type.name.equalsIgnoreCase('file')) ]
+[uploadFunctions(p)/]
+[/if]
 [/for]
+
+[if (c.attribute.type.name->exists(s:String|s = 'File'))]
+/**
+ * Get directory for file uploads
+ *
+ * @return string
+ */
+protected function getUploadDir($onlyName = false, $type = '') {
+    if (!$onlyName) {
+        return WEB_PATH.'/upload/'.$type;
+    }
+    return '/upload/'.$type;
+}
+[/if]
 [/template]
 
 
+
+[template public uploadFunctions(p : Property)]
+/**
+ * Sets the file used for [p.name/] uploads
+ *
+ * @param UploadedFile $file
+ * @return object
+ */
+public function set[p.name.toUpperFirst()/]File(UploadedFile $file = null) {
+    $this->[p.name/]File = $file;
+    if (isset($this->[p.name/])) {
+        $this->temp[p.name.toUpperFirst()/] = $this->[p.name/];
+        $this->[p.name/] = null;
+    }
+    return $this;
+}
+
+/**
+ * Get the file used for [p.name/] uploads
+ *
+ * @return UploadedFile
+ */
+public function get[p.name.toUpperFirst()/]File() {
+
+    return $this->[p.name/]File;
+}
+
+/**
+ * Get the absolute path of the [p.name/]Path
+ */
+public function get[p.name.toUpperFirst()/]AbsolutePath() {
+    return null === $this->[p.name/]
+        ? null
+        : $this->getUploadDir().'/'.$this->[p.name/];
+}
+
+/**
+ * Get the web path for the user
+ *
+ * @return string
+ */
+public function get[p.name.toUpperFirst()/]Path() {
+    return $this->getUploadDir(true).'/'.$this->get[p.name.toUpperFirst()/]();
+}
+
+/**
+ * @ORM\PrePersist()
+ * @ORM\PreUpdate()
+ */
+public function preUpload[p.name.toUpperFirst()/]() {
+    if (null !== $this->get[p.name.toUpperFirst()/]File()) {
+        $filename = '[p.name/]_'.$this->getId();
+        $this->set[p.name.toUpperFirst()/]($filename.'.'.$this->get[p.name.toUpperFirst()/]File()->guessExtension());
+    }
+}
+
+/**
+ * @ORM\PostPersist()
+ * @ORM\PostUpdate()
+ *
+ * Upload the [p.name.toUpperFirst()/]
+ *
+ * @return mixed
+ */
+public function upload[p.name.toUpperFirst()/]() {
+    if ($this->get[p.name.toUpperFirst()/]File() === null) {
+        return;
+    }
+    $this->get[p.name.toUpperFirst()/]File()->move($this->getUploadDir(), $this->get[p.name.toUpperFirst()/]Path());
+
+    if (isset($this->temp[p.name.toUpperFirst()/]) && file_exists($this->getUploadDir().'/'.$this->temp[p.name.toUpperFirst()/])) {
+        // delete the old file
+        unlink($this->getUploadDir().'/'.$this->temp[p.name.toUpperFirst()/]);
+        // clear the temp file path
+        $this->temp[p.name.toUpperFirst()/] = null;
+    }
+    $this->[p.name/]File = null;
+}
+
+/**
+ * @ORM\PostRemove()
+ */
+public function remove[p.name.toUpperFirst()/]File()
+{
+    if ($file = $this->get[p.name.toUpperFirst()/]Path() && file_exists($this->get[p.name.toUpperFirst()/]Path())) {
+        unlink($file);
+    }
+}
+[/template]
 
 
 [template public getterProperty(p : Property, isAssociation : Boolean) post (trim())]
