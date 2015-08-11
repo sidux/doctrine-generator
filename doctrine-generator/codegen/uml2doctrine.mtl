@@ -191,18 +191,18 @@ use [enumNamespace(e)/]\[e.name/];
 /**
 [if (not p.type.name.equalsIgnoreCase('virtual')) ]
  * @var [typePHP/]
- * @Type("string")
 [if (not p.type.oclAsType(Enumeration).oclIsInvalid())]
  * @EnumAssert\Enum(entity="[typeDoc/]")
 [/if]
 [if (p.type.name.equalsIgnoreCase('file')) ]
  * @ORM\Column(name="[p.name/]", type="string", length=255, nullable=true)
 [else]
- * @ORM\Column(name="[p.name/]", type="[typeDoc/]", nullable=true)
-[/if]
 [if (p.name.equalsIgnoreCase('id'))]
  * @ORM\Id
  * @ORM\GeneratedValue(strategy="AUTO")
+[else]
+ * @ORM\Column(name="[p.name/]", type="[typeDoc/]", nullable=true)
+[/if]
 [/if]
 [if (p.name.equalsIgnoreCase('createdat') or p.name.equalsIgnoreCase('updatedat'))]
 [let typeGedmo : String = p.name.replaceAll('tedAt', 'te')]
@@ -211,6 +211,7 @@ use [enumNamespace(e)/]\[e.name/];
 [/if]
 [else]
  * @var mixed
+ * @Type("string")
 [/if]
  * @Expose
  */
@@ -285,12 +286,16 @@ use [enumNamespace(e)/]\[e.name/];
  * @var [p.type.oclAsType(Class).entityFQN()/]
  *
  * @ORM\ManyToOne(targetEntity="[p.type.oclAsType(Class).entityFQN()/]", inversedBy="[p.opposite.name/]")
+[if (p.opposite.aggregation.toString() = 'composite') ]
  * @ORM\JoinColumn(onDelete="CASCADE")
- [if (p.name.equalsIgnoreCase('createdby') or p.name.equalsIgnoreCase('updatedby'))]
+[else]
+ * @ORM\JoinColumn(onDelete="SET NULL")
+[/if]
+[if (p.name.equalsIgnoreCase('createdby') or p.name.equalsIgnoreCase('updatedby'))]
     [let typeGedmo : String = p.name.replaceAll('tedBy', 'te')]
  * @Gedmo\Blameable(on="[typeGedmo/]")
     [/let]
- [/if]
+[/if]
  */
 [p.visibility/] $[p.name/];
 [/template]
