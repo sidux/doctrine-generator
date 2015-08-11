@@ -128,7 +128,7 @@ use [enumNamespace(e)/]\[e.name/];
 use AWCoreBundle\Entity\IActivable;
 [/if]
 [if (c.getAssociations().navigableOwnedEnd->select((type <> c) or (type = c and opposite.type = c)).name->exists(s:String|s = 'createdBy'))]
-use AWCoreBundle\Entity\IBleamable;
+use AWCoreBundle\Entity\IBlameable;
 [/if]
 
 [/template]
@@ -186,7 +186,7 @@ use AWCoreBundle\Entity\IBleamable;
 [/template]
 
 [template public entityImplements(c: Class)]
- implements IEntity[if (c.attribute.name->exists(s:String|s = 'enabled') or c.name = 'User')], IActivable[/if][if (c.getAssociations().navigableOwnedEnd->select((type <> c) or (type = c and opposite.type = c)).name->exists(s:String|s = 'createdBy'))], IBleamable[/if]
+ implements IEntity[if (c.attribute.name->exists(s:String|s = 'enabled') or c.name = 'User')], IActivable[/if][if (c.getAssociations().navigableOwnedEnd->select((type <> c) or (type = c and opposite.type = c)).name->exists(s:String|s = 'createdBy'))], IBlameable[/if]
 [/template]
 
 
