@@ -115,15 +115,21 @@ use JMS\Serializer\Annotation\Expose;
 use JMS\Serializer\Annotation\Type;
 use AWCoreBundle\Entity\Entity;
 use Symfony\Component\Validator\Constraints as Assert;
-[if (c._package.eAllContents(Enumeration)->notEmpty()) ]
-use Fresh\DoctrineEnumBundle\Validator\Constraints as EnumAssert;
-[/if]
 [if (c.attribute.type.name->exists(s:String|s = 'File'))]
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 [/if]
+[if (c.attribute.type.name->exists(s:String|s.strstr('Enum'))) ]
+use Fresh\DoctrineEnumBundle\Validator\Constraints as EnumAssert;
 [for (e : Enumeration | c._package.eAllContents(Enumeration)) ]
 use [enumNamespace(e)/]\[e.name/];
 [/for]
+[/if]
+[if (c.attribute.name->exists(s:String|s = 'enabled') or c.name = 'User')]
+use AWCoreBundle\Entity\IActivable;
+[/if]
+[if (c.getAssociations().navigableOwnedEnd->select((type <> c) or (type = c and opposite.type = c)).name->exists(s:String|s = 'createdBy'))]
+use AWCoreBundle\Entity\IBleamable;
+[/if]
 
 [/template]
 
@@ -132,7 +138,6 @@ use [enumNamespace(e)/]\[e.name/];
 
 /**
  * [c.name/]
- *
  * @ORM\Table()
  * @ORM\Entity(repositoryClass="[entityRepositoryFQN(c)/]")
 [if (c._package.eAllContents(Class).superClass.name->exists(s: String |s = c.name)) ]
@@ -144,7 +149,7 @@ use [enumNamespace(e)/]\[e.name/];
 
 
 [template public entityFQN(c : Class) post(trim())]
-[c.entityNamespace()/]\[c.name/]
+\[c.entityNamespace()/]\[c.name/]
 [/template]
 
 [template public repositoryFQN(c : Class) post(trim())]
@@ -177,7 +182,11 @@ use [enumNamespace(e)/]\[e.name/];
 
 
 [template public entityExtends(c : Class)]
-[if (not c.superClass->isEmpty())] extends [for (sc : Class | c.superClass) separator (', ')][sc.entityFQN()/][/for][else] extends Entity[/if]
+[if (not c.superClass->isEmpty())] extends [for (sc : Class | c.superClass) separator (', ')][sc.entityFQN()/][/for][else] extends Entity[/if][entityImplements(c)/]
+[/template]
+
+[template public entityImplements(c: Class)]
+ implements IEntity[if (c.attribute.name->exists(s:String|s = 'enabled') or c.name = 'User')], IActivable[/if][if (c.getAssociations().navigableOwnedEnd->select((type <> c) or (type = c and opposite.type = c)).name->exists(s:String|s = 'createdBy'))], IBleamable[/if]
 [/template]
 
 
@@ -185,8 +194,8 @@ use [enumNamespace(e)/]\[e.name/];
 
 [template public entityProperties(c : Class) post(trim())]
 [for (p: Property | c.attribute) separator ('\n')]
-[let typePHP : String = p.type.name.replaceAll('Integer', 'integer').replaceAll('String', 'string').replaceAll('Boolean', 'boolean').replaceAll('Date', '\\\\DateTime')]
-[let typeDoc : String = typePHP.replaceAll('\\\\DateTime', 'datetime').replaceAll('Date', 'datetime')]
+[let typePHP : String = p.type.name.replaceAll('Integer', 'integer').replaceAll('String', 'string').replaceAll('Boolean', 'boolean').replaceAll('Date', '\\\\DateTime').replaceAll('File', 'string')]
+[let typeDoc : String = typePHP.replaceAll('\\\\DateTime', 'datetime').replaceAll('Date', 'datetime').replaceAll('File', 'string')]
 
 /**
 [if (not p.type.name.equalsIgnoreCase('virtual')) ]
@@ -194,15 +203,11 @@ use [enumNamespace(e)/]\[e.name/];
 [if (not p.type.oclAsType(Enumeration).oclIsInvalid())]
  * @EnumAssert\Enum(entity="[typeDoc/]")
 [/if]
-[if (p.type.name.equalsIgnoreCase('file')) ]
- * @ORM\Column(name="[p.name/]", type="string", length=255, nullable=true)
-[else]
 [if (p.name.equalsIgnoreCase('id'))]
  * @ORM\Id
  * @ORM\GeneratedValue(strategy="AUTO")
 [else]
  * @ORM\Column(name="[p.name/]", type="[typeDoc/]", nullable=true)
-[/if]
 [/if]
 [if (p.name.equalsIgnoreCase('createdat') or p.name.equalsIgnoreCase('updatedat'))]
 [let typeGedmo : String = p.name.replaceAll('tedAt', 'te')]
@@ -220,6 +225,7 @@ use [enumNamespace(e)/]\[e.name/];
  
  
  /**
+  * @var UploadedFile
   * @Assert\File(maxSize="8192k")
   */
  [p.visibility/] $[p.name.concat('File')/];
@@ -463,7 +469,14 @@ public function remove[p.name.toUpperFirst()/]File()
 
 
 [template public getterProperty(p : Property, isAssociation : Boolean) post (trim())]
-[let typePHP : String = p.type.name.replaceAll('Integer', 'integer').replaceAll('String', 'string').replaceAll('Boolean', 'boolean').replaceAll('Date', '\\\\Datetime')]
+[let typePHP : String = p.type.name
+.replaceAll('Integer', 'integer')
+.replaceAll('String', 'string')
+.replaceAll('Boolean', 'boolean')
+.replaceAll('Date', '\\\\Datetime')
+.replaceAll('File', 'string')
+.replaceAll('Virtual', 'mixed')
+]
 
 /**
  * Gets [p.name/]
@@ -481,7 +494,14 @@ public function [if (typePHP.equalsIgnoreCase('boolean'))]is[else]get[/if][p.nam
 
 
 [template public setterProperty(p : Property, isAssociation : Boolean, oneTo : Boolean) post (trim())]
-[let typePHP : String = p.type.name.replaceAll('Integer', 'integer').replaceAll('String', 'string').replaceAll('Boolean', 'boolean').replaceAll('Date', '\\\\Datetime')]
+[let typePHP : String = p.type.name
+.replaceAll('Integer', 'integer')
+.replaceAll('String', 'string')
+.replaceAll('Boolean', 'boolean')
+.replaceAll('Date', '\\\\Datetime')
+.replaceAll('File', 'string')
+.replaceAll('Virtual', 'mixed')
+]
 [let typePHPDec : Set(String) = Set{'integer', 'string', 'boolean'}]
 /**
  * Sets [p.name/]
