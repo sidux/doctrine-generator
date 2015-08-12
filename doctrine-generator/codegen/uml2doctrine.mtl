@@ -112,8 +112,11 @@ use Gedmo\Mapping\Annotation as Gedmo;
 use Doctrine\Common\Collections\ArrayCollection;
 use JMS\Serializer\Annotation\ExclusionPolicy;
 use JMS\Serializer\Annotation\Expose;
+[if (c.attribute.type.name->exists(s:String|s = 'Virtual'))]
 use JMS\Serializer\Annotation\Type;
+[/if]
 use AWCoreBundle\Entity\Entity;
+use AWCoreBundle\Entity\IEntity;
 use Symfony\Component\Validator\Constraints as Assert;
 [if (c.attribute.type.name->exists(s:String|s = 'File'))]
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -129,6 +132,9 @@ use AWCoreBundle\Entity\IActivable;
 [/if]
 [if (c.getAssociations().navigableOwnedEnd->select((type <> c) or (type = c and opposite.type = c)).name->exists(s:String|s = 'createdBy'))]
 use AWCoreBundle\Entity\IBlameable;
+[/if]
+[if (c.name = 'User')]
+use FOS\UserBundle\Model\User as BaseUser;
 [/if]
 
 [/template]
@@ -182,7 +188,7 @@ use AWCoreBundle\Entity\IBlameable;
 
 
 [template public entityExtends(c : Class)]
-[if (not c.superClass->isEmpty())] extends [for (sc : Class | c.superClass) separator (', ')][sc.entityFQN()/][/for][else] extends Entity[/if][entityImplements(c)/]
+[if (not c.superClass->isEmpty())] extends [for (sc : Class | c.superClass) separator (', ')][sc.entityFQN()/][/for][else][if (c.name = 'User')] extends BaseUser[else] extends Entity[/if][/if][entityImplements(c)/]
 [/template]
 
 [template public entityImplements(c: Class)]
@@ -330,6 +336,9 @@ use AWCoreBundle\Entity\IBlameable;
  */
 public function __construct()
 {
+[if (not c.superClass->isEmpty() or c.name = 'User')]
+    parent::__construct();
+[/if]
 [for (p : Property | c.getAssociations().navigableOwnedEnd->select((type <> c) or (type = c and opposite.type = c)))]
 	[if (p.opposite.upper.toString().equalsIgnoreCase('1'))]
 		[if (p.upper.toString().equalsIgnoreCase('-1'))]
