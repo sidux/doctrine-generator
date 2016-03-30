@@ -200,20 +200,21 @@ use FOS\UserBundle\Model\User as BaseUser;
 
 [template public entityProperties(c : Class) post(trim())]
 [for (p: Property | c.attribute) separator ('\n')]
-[let typePHP : String = p.type.name.replaceAll('Integer', 'integer').replaceAll('String', 'string').replaceAll('Boolean', 'boolean').replaceAll('Date', '\\\\DateTime').replaceAll('File', 'string')]
+[let typePHP : String = p.type.name.replaceAll('Integer', 'integer').replaceAll('String', 'string').replaceAll('Float', 'float').replaceAll('Boolean', 'boolean').replaceAll('Date', '\\\\DateTime').replaceAll('File', 'string')]
 [let typeDoc : String = typePHP.replaceAll('\\\\DateTime', 'datetime').replaceAll('Date', 'datetime').replaceAll('File', 'string')]
 
 /**
 [if (not p.type.name.equalsIgnoreCase('virtual')) ]
  * @var [typePHP/]
 [if (not p.type.oclAsType(Enumeration).oclIsInvalid())]
- * @EnumAssert\Enum(entity="[typeDoc/]")
+ * @EnumAssert\Enum(entity="[c._package.name/]\Enum\[typeDoc/]")
 [/if]
 [if (p.name.equalsIgnoreCase('id'))]
  * @ORM\Id
  * @ORM\GeneratedValue(strategy="AUTO")
+ * @ORM\Column(type="integer")
 [else]
- * @ORM\Column(name="[p.name/]", type="[typeDoc/]", nullable=true)
+ * @ORM\Column(type="[typeDoc/]", nullable=true)
 [/if]
 [if (p.name.equalsIgnoreCase('createdat') or p.name.equalsIgnoreCase('updatedat'))]
 [let typeGedmo : String = p.name.replaceAll('tedAt', 'te')]
@@ -284,7 +285,10 @@ use FOS\UserBundle\Model\User as BaseUser;
 /**
  * @var [entityFQN(p.type.oclAsType(Class))/]
  *
- * @ORM\OneToOne(targetEntity="[p.type.oclAsType(Class).entityFQN()/]", [if(isOwningSide)]inversed[else]mapped[/if]By="[p.opposite.name/]"[if (isNullable)], nullable=true[/if])
+ * @ORM\OneToOne(targetEntity="[p.type.oclAsType(Class).entityFQN()/]", [if(isOwningSide)]inversed[else]mapped[/if]By="[p.opposite.name/]")
+[if (isNullable)]
+ * @ORM\JoinColumn(nullable=true)
+[/if]
  * @Expose
  */
 [p.visibility/] $[p.name/];
@@ -481,6 +485,7 @@ public function remove[p.name.toUpperFirst()/]File()
 [let typePHP : String = p.type.name
 .replaceAll('Integer', 'integer')
 .replaceAll('String', 'string')
+.replaceAll('Float', 'float')
 .replaceAll('Boolean', 'boolean')
 .replaceAll('Date', '\\\\Datetime')
 .replaceAll('File', 'string')
@@ -507,11 +512,12 @@ public function [if (typePHP.equalsIgnoreCase('boolean'))]is[else]get[/if][p.nam
 .replaceAll('Integer', 'integer')
 .replaceAll('String', 'string')
 .replaceAll('Boolean', 'boolean')
+.replaceAll('Float', 'float')
 .replaceAll('Date', '\\\\Datetime')
 .replaceAll('File', 'string')
 .replaceAll('Virtual', 'mixed')
 ]
-[let typePHPDec : Set(String) = Set{'integer', 'string', 'boolean'}]
+[let typePHPDec : Set(String) = Set{'integer', 'string', 'boolean', 'float'}]
 /**
  * Sets [p.name/]
  * 
