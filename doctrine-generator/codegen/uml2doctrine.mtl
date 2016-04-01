@@ -228,14 +228,14 @@ use FOS\UserBundle\Model\User as BaseUser;
  * @Expose
  */
  [if (p.type.name.equalsIgnoreCase('file')) ]
- [p.visibility/] $[p.name/];
+ [p.visibility/] $[p.name.toString().replaceAll('(p|P)ath', '').concat('path').replaceAll('(f|F)ile', '')/];
  
  
  /**
   * @var UploadedFile
   * @Assert\File(maxSize="8192k")
   */
- [p.visibility/] $[p.name.concat('File')/];
+ [p.visibility/] $[p.name.toString().replaceAll('(f|F)ile', '').concat('file').replaceAll('(p|P)ath', '')/];
 [else]
  [p.visibility/] $[p.name/];
 [/if]
@@ -363,15 +363,16 @@ public function __construct()
 [template public entityPropertiesGetSet(c : Class) post (trim())]
 [for (p: Property | c.attribute) separator('\n')]
 
+[if (p.type.name.equalsIgnoreCase('file')) ]
+[uploadFunctions(p)/]
+[else]
 [getterProperty(p, false)/]
 [if (not p.name.equalsIgnoreCase('id'))]
 
 [setterProperty(p, false, false)/]
 [/if]
-
-[if (p.type.name.equalsIgnoreCase('file')) ]
-[uploadFunctions(p)/]
 [/if]
+
 [/for]
 
 [if (c.attribute.type.name->exists(s:String|s = 'File'))]
@@ -398,8 +399,8 @@ protected function getUploadDir($onlyName = false, $type = '') {
  * @param UploadedFile $file
  * @return object
  */
-public function set[p.name.toUpperFirst()/]File(UploadedFile $file = null) {
-    $this->[p.name/]File = $file;
+public function set[p.name.toUpperFirst()/](UploadedFile $file = null) {
+    $this->[p.name/] = $file;
     if (isset($this->[p.name/])) {
         $this->temp[p.name.toUpperFirst()/] = $this->[p.name/];
         $this->[p.name/] = null;
@@ -412,9 +413,9 @@ public function set[p.name.toUpperFirst()/]File(UploadedFile $file = null) {
  *
  * @return UploadedFile
  */
-public function get[p.name.toUpperFirst()/]File() {
+public function get[p.name.toUpperFirst()/]() {
 
-    return $this->[p.name/]File;
+    return $this->[p.name/];
 }
 
 /**
@@ -440,9 +441,9 @@ public function get[p.name.toUpperFirst()/]Path() {
  * @ORM\PreUpdate()
  */
 public function preUpload[p.name.toUpperFirst()/]() {
-    if (null !== $this->get[p.name.toUpperFirst()/]File()) {
+    if (null !== $this->get[p.name.toUpperFirst()/]()) {
         $filename = '[p.name/]_'.$this->getId();
-        $this->set[p.name.toUpperFirst()/]($filename.'.'.$this->get[p.name.toUpperFirst()/]File()->guessExtension());
+        $this->set[p.name.toUpperFirst()/]($filename.'.'.$this->get[p.name.toUpperFirst()/]()->guessExtension());
     }
 }
 
@@ -455,10 +456,10 @@ public function preUpload[p.name.toUpperFirst()/]() {
  * @return mixed
  */
 public function upload[p.name.toUpperFirst()/]() {
-    if ($this->get[p.name.toUpperFirst()/]File() === null) {
+    if ($this->get[p.name.toUpperFirst()/]() === null) {
         return;
     }
-    $this->get[p.name.toUpperFirst()/]File()->move($this->getUploadDir(), $this->get[p.name.toUpperFirst()/]Path());
+    $this->get[p.name.toUpperFirst()/]()->move($this->getUploadDir(), $this->get[p.name.toUpperFirst()/]Path());
 
     if (isset($this->temp[p.name.toUpperFirst()/]) && file_exists($this->getUploadDir().'/'.$this->temp[p.name.toUpperFirst()/])) {
         // delete the old file
@@ -466,13 +467,13 @@ public function upload[p.name.toUpperFirst()/]() {
         // clear the temp file path
         $this->temp[p.name.toUpperFirst()/] = null;
     }
-    $this->[p.name/]File = null;
+    $this->[p.name/] = null;
 }
 
 /**
  * @ORM\PostRemove()
  */
-public function remove[p.name.toUpperFirst()/]File()
+public function remove[p.name.toUpperFirst()/]()
 {
     if ($file = $this->get[p.name.toUpperFirst()/]Path() && file_exists($this->get[p.name.toUpperFirst()/]Path())) {
         unlink($file);
@@ -487,9 +488,10 @@ public function remove[p.name.toUpperFirst()/]File()
 .replaceAll('String', 'string')
 .replaceAll('Float', 'float')
 .replaceAll('Boolean', 'boolean')
-.replaceAll('Date', '\\\\Datetime')
+.replaceAll('Date', '\\\\DateTime')
 .replaceAll('File', 'string')
 .replaceAll('Virtual', 'mixed')
+.replaceAll('^.+Enum', 'string')
 ]
 
 /**
@@ -513,10 +515,12 @@ public function [if (typePHP.equalsIgnoreCase('boolean'))]is[else]get[/if][p.nam
 .replaceAll('String', 'string')
 .replaceAll('Boolean', 'boolean')
 .replaceAll('Float', 'float')
-.replaceAll('Date', '\\\\Datetime')
+.replaceAll('Date', '\\\\DateTime')
 .replaceAll('File', 'string')
 .replaceAll('Virtual', 'mixed')
+.replaceAll('^.+Enum', 'string')
 ]
+
 [let typePHPDec : Set(String) = Set{'integer', 'string', 'boolean', 'float'}]
 /**
  * Sets [p.name/]
@@ -525,11 +529,10 @@ public function [if (typePHP.equalsIgnoreCase('boolean'))]is[else]get[/if][p.nam
  * 
  * @return $this
  */
-public function set[p.name.toUpperFirst()/]([if (isAssociation)][entityFQN(p.type.oclAsType(Class))/] [elseif (typePHPDec->count(typePHP).toString().equalsIgnoreCase('0'))][typePHP/] [/if]$[p.name/]) 
+public function set[p.name.toUpperFirst()/]([if (isAssociation)][entityFQN(p.type.oclAsType(Class))/] [elseif (typePHPDec->count(typePHP).toString().equalsIgnoreCase('0') and not typePHP.toLower().contains('enum'))][typePHP/] [/if]$[p.name/]) 
 {
 	[if (isAssociation)]
-	if($this->get[p.name.toUpperFirst()/]() !== $[p.name/])
-	{
+	if ($this->get[p.name.toUpperFirst()/]() !== $[p.name/]) {
 		$this->[p.name/] = $[p.name/];
 		$[p.name/]->[if (oneTo)]set[p.opposite.name.toUpperFirst()/][else]add[p.opposite.name.substring(1, p.opposite.name.size() - 1).toUpperFirst()/][/if]($this);
 	}
