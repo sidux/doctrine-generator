@@ -37,12 +37,12 @@
 [file (c.name.concat('Repository.php'), false, 'UTF-8')]
 [repositoryDeclaration(c)/]
 
-use Doctrine\ORM\EntityRepository;
+use AWCoreBundle\Repository\BaseRepository;
 
 /**
  * [c.name.concat('Repository')/]
  */
-class [c.name.concat('Repository')/] extends EntityRepository
+class [c.name.concat('Repository')/] extends BaseRepository
 {
 }
 [/file]
