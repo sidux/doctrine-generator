@@ -1,8 +1,6 @@
 Try to generate Doctrine entities from GenMyModel project. [WIP]
 
-## OWNING SIDE ##
-
-For OneToOne & ManyToMany specify owning side after generation
+Supports doctrine extensions and enums.
 
 ## TODO ##
-* add sf2 validations
+* add symfony validations
