@@ -277,7 +277,7 @@ use FOS\UserBundle\Model\User as BaseUser;
 /**
  * @var [entityFQN(p.type.oclAsType(Class))/]
  *
- * @ORM\OneToOne(targetEntity="[p.type.oclAsType(Class).entityFQN()/]", [if(isOwningSide)]inversed[else]mapped[/if]By="[p.opposite.name/]")
+ * @ORM\OneToOne(targetEntity="[p.type.oclAsType(Class).entityFQN()/]", [if(p.type.oclAsType(Class).toString() > p.opposite.type.oclAsType(Class).toString())]inversed[else]mapped[/if]By="[p.opposite.name/]")
 [if (isNullable)]
  * @ORM\JoinColumn(nullable=true)
 [/if]
@@ -316,7 +316,7 @@ use FOS\UserBundle\Model\User as BaseUser;
 /**
  * @var ArrayCollection|[p.type.oclAsType(Class).entityFQN()/]['['/][']'/]
  *
- * @ORM\ManyToMany(targetEntity="[p.type.oclAsType(Class).entityFQN()/]", [if(isOwningSide)]inversed[else]mapped[/if]By="[p.opposite.name/]")
+ * @ORM\ManyToMany(targetEntity="[p.type.oclAsType(Class).entityFQN()/]", [if(p.type.oclAsType(Class).toString() > p.opposite.type.oclAsType(Class).toString())]inversed[else]mapped[/if]By="[p.opposite.name/]")
  */
 [p.visibility/] $[p.name/];
 [/template]
