@@ -22,11 +22,19 @@
 
 [c.entityDocumentation()/]
 [c.entityDeclaration()/]
+	[if (c.name.toString().equalsIgnoreCase('File'))]
+    [c.fileProperties()/]
+    [/if]
+
 	[c.entityProperties()/]
 
 	[c.entityAssociations()/]
 
 	[c.entityConstruct()/]
+	
+	[if (c.name.toString().equalsIgnoreCase('File'))]
+    [c.fileMethodes()/]
+    [/if]
 
 	[c.entityPropertiesGetSet()/]
 
@@ -73,7 +81,7 @@ class [e.name/] extends AbstractEnumType
     [for (p:NamedElement | e.getOwnedMembers()) ]
         self::[p.name.toUpper()/]    => '[p.name.toUpperFirst()/]',
     [/for]
- [']'/];
+    [']'/];
 }
 [/file]
 
@@ -113,7 +121,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use AWCoreBundle\Entity\Entity;
 use AWCoreBundle\Entity\IEntity;
 use Symfony\Component\Validator\Constraints as Assert;
-[if (c.attribute.type.name->exists(s:String|s = 'File'))]
+[if (c.attribute.type.name->exists(s:String|s = 'File') or c.name.toString().equalsIgnoreCase('File'))]
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 [/if]
 [if (c.attribute.type.name->exists(s:String|s.strstr('Enum'))) ]
@@ -145,6 +153,9 @@ use FOS\UserBundle\Model\User as BaseUser;
  * @ORM\Entity(repositoryClass="[entityRepositoryFQN(c)/]")
 [if (c._package.eAllContents(Class).superClass.name->exists(s: String |s = c.name)) ]
  * @ORM\InheritanceType("SINGLE_TABLE")
+[/if]
+[if (c.name.toString().equalsIgnoreCase('File'))]
+ * @Gedmo\Uploadable(allowOverwrite=false, appendNumber=true)
 [/if]
  */
 [/template]
@@ -217,7 +228,7 @@ use FOS\UserBundle\Model\User as BaseUser;
 [/let]
 [/if]
 [if (p.name.equalsIgnoreCase('position'))]
- * @Gedmo\Sortable()
+ * @Gedmo\SortablePosition()
 [/if]
  */
  [if (p.type.name.equalsIgnoreCase('file')) ]
@@ -274,15 +285,18 @@ use FOS\UserBundle\Model\User as BaseUser;
 	isOwningSide : Boolean = p.eAnnotations.details->select(value.toString().contains('association:owning'))->notEmpty();
 	isNullable : Boolean = p.lower.toString().equalsIgnoreCase('0');
 }]
+[if (p.type.oclAsType(Class).toString() = p.opposite.type.oclAsType(Class).toString() and p.type.oclAsType(Class).toString().toLower().contains(p.name.toLower()))]
+[else]
 /**
  * @var [entityFQN(p.type.oclAsType(Class))/]
  *
- * @ORM\OneToOne(targetEntity="[p.type.oclAsType(Class).entityFQN()/]", [if(p.type.oclAsType(Class).toString() > p.opposite.type.oclAsType(Class).toString())]inversed[else]mapped[/if]By="[p.opposite.name/]")
+ * @ORM\OneToOne(targetEntity="[p.type.oclAsType(Class).entityFQN()/]"[if(p.type.oclAsType(Class).toString() > p.opposite.type.oclAsType(Class).toString())], mappedBy="[p.opposite.name/]"[elseif(p.type.oclAsType(Class).toString() = p.opposite.type.oclAsType(Class).toString())][else], inversedBy="[p.opposite.name/]"[/if])
 [if (isNullable)]
  * @ORM\JoinColumn(nullable=true)
 [/if]
  */
 [p.visibility/] $[p.name/];
+[/if]
 [/template]
 
 
@@ -313,12 +327,15 @@ use FOS\UserBundle\Model\User as BaseUser;
 [template public manyToMany(p : Property) post(trim()) {
 	isOwningSide : Boolean = p.eAnnotations.details->select(value.toString().contains('association:owning'))->notEmpty();
 }]
+[if (p.type.oclAsType(Class).toString() = p.opposite.type.oclAsType(Class).toString() and p.type.oclAsType(Class).toString().toLower().contains(p.name.toLower()))]
+[else]
 /**
  * @var ArrayCollection|[p.type.oclAsType(Class).entityFQN()/]['['/][']'/]
  *
- * @ORM\ManyToMany(targetEntity="[p.type.oclAsType(Class).entityFQN()/]", [if(p.type.oclAsType(Class).toString() > p.opposite.type.oclAsType(Class).toString())]inversed[else]mapped[/if]By="[p.opposite.name/]")
+ * @ORM\ManyToMany(targetEntity="[p.type.oclAsType(Class).entityFQN()/]"[if(p.type.oclAsType(Class).toString() > p.opposite.type.oclAsType(Class).toString())], mappedBy="[p.opposite.name/]"[elseif(p.type.oclAsType(Class).toString() = p.opposite.type.oclAsType(Class).toString())][else], inversedBy="[p.opposite.name/]"[/if])
  */
 [p.visibility/] $[p.name/];
+[/if]
 [/template]
 
 
@@ -624,5 +641,139 @@ public function remove[param.toUpperFirst()/]([typeFQN/] $[param/])
 	}
 
 	return false;
+}
+[/template]
+
+
+[template public fileProperties(c : Class) post(trim())]
+/**
+ * @ORM\Column(type="string", length=255, nullable=true)
+ * @Gedmo\UploadableFileName
+ * @Assert\NotBlank
+ */
+protected $name;
+
+/**
+ * @ORM\Column(type="string", length=255, nullable=true)
+ * @Gedmo\UploadableFilePath
+ * @Assert\NotBlank
+ */
+protected $path;
+
+/**
+ * @ORM\Column(type="string", nullable=true)
+ * @Gedmo\UploadableFileMimeType
+ * @Assert\NotBlank
+ */
+protected $mimeType;
+
+/**
+ * @ORM\Column(type="decimal", nullable=true)
+ * @Gedmo\UploadableFileSize
+ * @Assert\NotBlank
+ */
+protected $size;
+
+/**
+ * @Assert\File(maxSize="6000000")
+ * @var UploadedFile
+ */
+protected $file;
+[/template]
+
+[template public fileMethodes(c : Class) post(trim())]
+/**
+ * @return mixed
+ */
+public function getName()
+{
+    return $this->name;
+}
+
+/**
+ * @param mixed $name
+ * @return File
+ */
+public function setName($name)
+{
+    $this->name = $name;
+
+    return $this;
+}
+
+/**
+ * @return string
+ */
+public function getPath()
+{
+    return $this->path;
+}
+
+/**
+ * @param string $path
+ * @return File
+ */
+public function setPath($path)
+{
+    $this->path = $path;
+
+    return $this;
+}
+
+/**
+ * @return string
+ */
+public function getMimeType()
+{
+    return $this->mimeType;
+}
+
+/**
+ * @param string $mimeType
+ * @return File
+ */
+public function setMimeType($mimeType)
+{
+    $this->mimeType = $mimeType;
+
+    return $this;
+}
+
+/**
+ * @return mixed
+ */
+public function getSize()
+{
+    return $this->size;
+}
+
+/**
+ * @param mixed $size
+ * @return File
+ */
+public function setSize($size)
+{
+    $this->size = $size;
+
+    return $this;
+}
+
+/**
+ * @return UploadedFile
+ */
+public function getFile()
+{
+    return $this->file;
+}
+
+/**
+ * @param UploadedFile $file
+ * @return File
+ */
+public function setFile($file)
+{
+    $this->file = $file;
+
+    return $this;
 }
 [/template]
