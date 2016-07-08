@@ -232,7 +232,7 @@ use FOS\UserBundle\Model\User as BaseUser;
 [/if]
  */
  [if (p.type.name.equalsIgnoreCase('file')) ]
- [p.visibility/] $[p.name.toString().replaceAll('(p|P)ath', '').concat('path').replaceAll('(f|F)ile', '')/];
+ [p.visibility/] $[p.name.toString().replaceAll('(p|P)ath', '').replaceAll('(f|F)ile', '')/];
  
  
  /**
@@ -274,7 +274,7 @@ use FOS\UserBundle\Model\User as BaseUser;
 /**
  * @var ArrayCollection|[p.type.oclAsType(Class).entityFQN()/]['['/][']'/]
  *
- * @ORM\OneToMany(targetEntity="[p.type.oclAsType(Class).entityFQN()/]", mappedBy="[p.opposite.name/]")
+ * @ORM\OneToMany(targetEntity="[p.type.oclAsType(Class).entityFQN()/]", mappedBy="[p.opposite.name/]", orphanRemoval=true)
  */
 [p.visibility/] $[p.name/];
 [/template]
@@ -536,12 +536,14 @@ public function [if (typePHP.equalsIgnoreCase('boolean'))]is[else]get[/if][p.nam
  * 
  * @return $this
  */
-public function set[p.name.toUpperFirst()/]([if (isAssociation)][entityFQN(p.type.oclAsType(Class))/] [elseif (typePHPDec->count(typePHP).toString().equalsIgnoreCase('0') and not typePHP.toLower().contains('enum'))][typePHP/] [/if]$[p.name/]) 
+public function set[p.name.toUpperFirst()/]([if (isAssociation)][entityFQN(p.type.oclAsType(Class))/] [elseif (typePHPDec->count(typePHP).toString().equalsIgnoreCase('0') and not typePHP.toLower().contains('enum'))][typePHP/] [/if]$[p.name/] = null) 
 {
 	[if (isAssociation)]
 	if ($this->get[p.name.toUpperFirst()/]() !== $[p.name/]) {
 		$this->[p.name/] = $[p.name/];
-		$[p.name/]->[if (oneTo)]set[p.opposite.name.toUpperFirst()/][else]add[p.opposite.name.substring(1, p.opposite.name.size() - 1).toUpperFirst()/][/if]($this);
+		if ($[p.name/]) {
+		    $[p.name/]->[if (oneTo)]set[p.opposite.name.toUpperFirst()/][else]add[p.opposite.name.substring(1, p.opposite.name.size() - 1).toUpperFirst()/][/if]($this);
+		}
 	}
 	[else]
 	$this->[p.name/] = $[p.name/];
@@ -602,15 +604,12 @@ public function set[p.name.toUpperFirst()/]([if (isAssociation)][entityFQN(p.typ
  */
 public function add[param.toUpperFirst()/]([typeFQN/] $[param/])
 {
-	if(!$this->get[p.name.toUpperFirst()/]()->contains($[param/]))
-	{
+	if (!$this->get[p.name.toUpperFirst()/]()->contains($[param/])) {
 		$this->[p.name/]['['/][']'/] = $[param/];
 		$[param/]->[if (oneTo)]set[p.opposite.name.toUpperFirst()/][else]add[p.opposite.name.substring(1, p.opposite.name.size() - 1).toUpperFirst()/][/if]($this);
-
-		return true;
 	}
 
-	return false;
+	return $this;
 }
 [/template]
 
@@ -630,17 +629,15 @@ public function add[param.toUpperFirst()/]([typeFQN/] $[param/])
  */
 public function remove[param.toUpperFirst()/]([typeFQN/] $[param/])
 {
-	if($this->get[p.name.toUpperFirst()/]()->contains($[param/]))
-	{
+	if ($this->get[p.name.toUpperFirst()/]()->contains($[param/])) {
 		$this->[p.name/]->removeElement($[param/]);
+		$[param/]->set[p.class.toString().toUpperFirst() /](null);
 		[if (not oneTo)]
 		$[param/]->remove[p.opposite.name.substring(1, p.opposite.name.size() - 1).toUpperFirst()/]($this);
 		[/if]
-
-		return true;
 	}
 
-	return false;
+	return $this;
 }
 [/template]
 
