@@ -274,7 +274,7 @@ use FOS\UserBundle\Model\User as BaseUser;
 /**
  * @var ArrayCollection|[p.type.oclAsType(Class).entityFQN()/]['['/][']'/]
  *
- * @ORM\OneToMany(targetEntity="[p.type.oclAsType(Class).entityFQN()/]", mappedBy="[p.opposite.name/]", orphanRemoval=true)
+ * @ORM\OneToMany(targetEntity="[p.type.oclAsType(Class).entityFQN()/]", mappedBy="[p.opposite.name/]", orphanRemoval=true, cascade={"persist"})
  */
 [p.visibility/] $[p.name/];
 [/template]
